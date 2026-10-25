@@ -45,6 +45,8 @@ export default function ScanPanel() {
   const [sshResult, setSshResult] = useState("");
   const [sshReports, setSshReports] = useState<SshReport[]>([]);
   const [sshTargetIp, setSshTargetIp] = useState<string | null>(null);
+  const [remediationBusyHost, setRemediationBusyHost] = useState<string | null>(null);
+  const [remediationResult, setRemediationResult] = useState("");
 
   const refresh = useCallback(async () => {
     try {
@@ -54,13 +56,13 @@ export default function ScanPanel() {
       setJobs(data.jobs);
       setDevices(data.devices ?? []);
       setDefaults(data.defaults);
-      setSelected((current) => current ?? data.jobs[0]?.id ?? null);
       const reportResponse = await fetch("/api/openshell", { cache: "no-store" });
       if (reportResponse.ok) {
         const reportData = await reportResponse.json();
         setSshReports(reportData.reports ?? []);
         setSshTargetIp(reportData.targetIp ?? null);
       }
+      setSelected((current) => current ?? data.jobs[0]?.id ?? null);
     } catch (cause) {
       setError(String(cause));
     }
@@ -116,8 +118,6 @@ export default function ScanPanel() {
     void update("PUT", { enabled: true, intervalMinutes: Number(createPeriod), config: defaults });
   }
 
-  return (
-    <section className="mt-8 space-y-6">
   async function verifySsh(host: string) {
     setSshBusyHost(host);
     setSshResult("");
@@ -135,6 +135,24 @@ export default function ScanPanel() {
     }
   }
 
+  async function sendRemediation(host: string) {
+    setRemediationBusyHost(host);
+    setRemediationResult("");
+    try {
+      const response = await fetch("/api/remediation", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ host }),
+      });
+      const data = await response.json();
+      setRemediationResult(response.ok ? `${host}: Remediation steps sent to Discord (${data.messagesSent} message${data.messagesSent === 1 ? "" : "s"}).` : `${host}: ${data.error}`);
+    } catch {
+      setRemediationResult(`${host}: Could not contact the web server`);
+    } finally {
+      setRemediationBusyHost(null);
+    }
+  }
+
+  return (
+    <section className="mt-8 space-y-6">
       <div role="tablist" aria-label="Scan sections" className="flex flex-wrap gap-2 border-b border-slate-700 pb-3">
         {([ ["devices", "Dashboard"], ["scans", "Scans"], ["discovery", "Devices"] ] as const).map(([key, label]) =>
           <button key={key} role="tab" aria-selected={tab === key} onClick={() => setTab(key)}
@@ -143,11 +161,12 @@ export default function ScanPanel() {
           </button>)}
       </div>
       {error && <p role="alert" className="rounded-lg bg-red-950 p-3 text-red-200">{error}</p>}
+      {sshResult && <p role="status" className="rounded-lg bg-slate-800 p-3 text-slate-100">{sshResult}</p>}
+      {remediationResult && <p role="status" className="rounded-lg bg-slate-800 p-3 text-slate-100">{remediationResult}</p>}
 
       {tab === "devices" && <div className="rounded-xl border border-slate-700 p-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-      {sshResult && <p role="status" className="rounded-lg bg-slate-800 p-3 text-slate-100">{sshResult}</p>}
             <h2 className="text-xl font-semibold">Scanned devices and ports</h2>
             <p className="mt-1 text-sm text-slate-400">
               {devices.length} {devices.length === 1 ? "device" : "devices"} found across all completed scans. Latest result shown per port.
@@ -163,6 +182,11 @@ export default function ScanPanel() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-mono text-base font-semibold text-cyan-300">{device.host}</h3>
               <div className="flex items-center gap-3">
+                {device.ports.some((port) => port.status === "open") &&
+                  <button disabled={remediationBusyHost !== null} onClick={() => void sendRemediation(device.host)}
+                    className="rounded border border-amber-600 px-3 py-1 text-xs text-amber-200 hover:bg-amber-950 disabled:opacity-50">
+                    {remediationBusyHost === device.host ? "Generating and sending…" : "Send remediation"}
+                  </button>}
                 {device.host === sshTargetIp && device.ports.some((port) => port.port === 22 && port.status === "open") &&
                   <button disabled={sshBusyHost !== null} onClick={() => void verifySsh(device.host)}
                     className="rounded border border-cyan-600 px-3 py-1 text-xs text-cyan-200 hover:bg-cyan-950 disabled:opacity-50">
@@ -186,10 +210,6 @@ export default function ScanPanel() {
                 </tbody>
               </table>
             </div> : <p className="mt-3 text-sm text-slate-400">No open ports were recorded for this device.</p>}
-          </article>)}
-          {!visibleDevices.length && <p className="rounded-lg bg-slate-950 p-4 text-sm text-slate-400">
-            {devices.length ? "No devices match this filter." : "No scanned devices yet. Run or import a completed scan to populate this view."}
-          </p>}
             {sshReports.filter((report) => report.host === device.host).slice(0, 1).map((report) =>
               <div key={report.id} className="mt-4 space-y-3 rounded-lg border border-slate-700 p-4 text-sm">
                 <h4 className="font-semibold">安全报告 #{report.id} · {new Date(report.createdAt).toLocaleString()}</h4>
@@ -197,6 +217,10 @@ export default function ScanPanel() {
                   <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded bg-slate-900 p-3">{report.evidence}</pre></details>
                 <div className="whitespace-pre-wrap text-slate-200">{report.analysis ?? `模型分析不可用：${report.analysisError ?? "未知错误"}`}</div>
               </div>)}
+          </article>)}
+          {!visibleDevices.length && <p className="rounded-lg bg-slate-950 p-4 text-sm text-slate-400">
+            {devices.length ? "No devices match this filter." : "No scanned devices yet. Run or import a completed scan to populate this view."}
+          </p>}
         </div>
       </div>}
 

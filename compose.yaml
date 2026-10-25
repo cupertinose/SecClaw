@@ -25,6 +25,11 @@ services:
       USER_CSV_PATH: /data/users.csv
       NEXT_TELEMETRY_DISABLED: "1"
       WATCHPACK_POLLING: "true"
+      VLLM_HOST: ${VLLM_HOST:-http://host.docker.internal:8000}
+      VLLM_MODEL: ${VLLM_MODEL:-gpt-oss-120b}
+      SECCLAW_DISCORD_WEBHOOK: ${SECCLAW_DISCORD_WEBHOOK:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:3000:3000"
     volumes:

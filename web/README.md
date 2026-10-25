@@ -58,6 +58,23 @@ DATABASE_URL=postgresql://secclaw:secclaw_dev@127.0.0.1:5432/secclaw \
 
 Re-importing a report with the same scan start time does not create a duplicate.
 
+## Discord remediation messages
+
+Set `SECCLAW_DISCORD_WEBHOOK` in the web server environment to a Discord channel
+webhook URL. Set `VLLM_HOST` (default `http://127.0.0.1:8000`) and `VLLM_MODEL`
+(default `gpt-oss-120b`) so the web server can reach the local vLLM API. The
+**Send remediation** button on a scanned device with an open port generates
+defensive steps from its latest per-port observations and sends them to that
+Discord channel. Only `sys_admin` users can use it. The webhook URL stays on
+the server and is never returned to the browser. Configure it in an untracked
+environment file or service environment, not in source control.
+For Docker Compose, put it in a root `.env` file or export it before running
+`./scripts/start-web.sh`; Compose forwards it into the web container and uses
+`host.docker.internal:8000` for host-run vLLM by default.
+
+The message is advisory. It does not change device settings or assert that an
+open port is a confirmed vulnerability.
+
 ## OpenShell SSH reports
 
 The dashboard offers **OpenShell 生成安全报告** for scanned devices with port 22
