@@ -37,7 +37,7 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-slate-100">
       <form onSubmit={submit} className="w-full max-w-sm space-y-5 rounded-2xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-widest text-cyan-400">SecClaw</p>
+          <p className="text-sm font-semibold tracking-widest text-cyan-400">SecClaw</p>
           <h1 className="mt-2 text-3xl font-semibold">Sign in</h1>
         </div>
         <label className="block text-sm">
