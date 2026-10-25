@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: secclaw
+      POSTGRES_USER: secclaw
+      POSTGRES_PASSWORD: secclaw_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - secclaw_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U secclaw -d secclaw"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://secclaw:secclaw_dev@postgres:5432/secclaw
+      SESSION_SECRET: secclaw-local-development-secret-change-me
+      USER_CSV_PATH: /data/users.csv
+      NEXT_TELEMETRY_DISABLED: "1"
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./web:/app
+      - ./data:/data:ro
+      - web_node_modules:/app/node_modules
+      - web_next_cache:/app/.next
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >-
+      sh -c "npm run db:push && npm run db:import-users && npm run dev -- --hostname 0.0.0.0"
+
+volumes:
+  secclaw_postgres_data:
+  web_node_modules:
+  web_next_cache:
