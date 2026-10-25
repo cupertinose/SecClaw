@@ -103,6 +103,7 @@ export VLLM_SCAN_TCP_FALLBACK="$tcp_fallback"
 
 python3 - <<'PY'
 import concurrent.futures
+import fcntl
 import http.client
 import ipaddress
 import json
@@ -111,6 +112,7 @@ import re
 import shutil
 import socket
 import ssl
+import struct
 import subprocess
 import sys
 import time
@@ -420,7 +422,78 @@ if not hosts:
     print("No responsive hosts found; no ports will be scanned.", file=sys.stderr)
 
 
+def local_interface_addresses():
+    addresses = {"127.0.0.1", "::1"}
+    for _, name in socket.if_nameindex():
+        try:
+            packed = struct.pack("256s", name.encode()[:15])
+            with socket.socket() as control_socket:
+                response = fcntl.ioctl(control_socket, 0x8915, packed)  # SIOCGIFADDR
+            addresses.add(socket.inet_ntoa(response[20:24]))
+        except OSError:
+            pass
+    try:
+        with open("/proc/net/if_inet6", encoding="ascii") as stream:
+            for line in stream:
+                addresses.add(socket.inet_ntop(socket.AF_INET6, bytes.fromhex(line.split()[0])))
+    except OSError:
+        pass
+    return addresses
+
+
+def listening_endpoints():
+    endpoints = set()
+    for path, family in (("/proc/net/tcp", socket.AF_INET), ("/proc/net/tcp6", socket.AF_INET6)):
+        try:
+            with open(path, encoding="ascii") as stream:
+                next(stream, None)
+                for line in stream:
+                    fields = line.split()
+                    if len(fields) < 4 or fields[3] != "0A":  # TCP_LISTEN
+                        continue
+                    address_hex, port_hex = fields[1].split(":")
+                    raw = bytes.fromhex(address_hex)
+                    if family == socket.AF_INET:
+                        raw = raw[::-1]
+                    else:
+                        raw = b"".join(raw[index:index + 4][::-1] for index in range(0, 16, 4))
+                    endpoints.add((socket.inet_ntop(family, raw), int(port_hex, 16)))
+        except OSError:
+            pass
+    return endpoints
+
+
+local_addresses = local_interface_addresses()
+local_listeners = listening_endpoints()
+local_targets = {}
+for host in hosts:
+    try:
+        resolved = {
+            item[4][0].split("%", 1)[0]
+            for item in socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+        }
+    except socket.gaierror:
+        resolved = set()
+    local_targets[host] = resolved & local_addresses
+
+
+def locally_listening(host, port):
+    target_addresses = local_targets.get(host, set())
+    if not target_addresses:
+        return True
+    return any(
+        (address, port) in local_listeners
+        or ("0.0.0.0", port) in local_listeners
+        or ("::", port) in local_listeners
+        for address in target_addresses
+    )
+
+
 def probe(host, port):
+    # A full scan of the scanner's own address can connect to its concurrent
+    # outbound sockets and misreport ephemeral client ports as listeners.
+    if not locally_listening(host, port):
+        return None
     try:
         with socket.create_connection((host, port), timeout=timeout):
             pass
