@@ -42,3 +42,13 @@ export const discoveryJobs = pgTable("discovery_jobs", {
   error: text("error"),
   result: jsonb("result"),
 });
+
+export const sshReports = pgTable("ssh_reports", {
+  id: serial("id").primaryKey(),
+  host: text("host").notNull(),
+  requestedBy: integer("requested_by").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  evidence: text("evidence").notNull(),
+  analysis: text("analysis"),
+  analysisError: text("analysis_error"),
+});

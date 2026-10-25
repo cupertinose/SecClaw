@@ -1,0 +1,9 @@
+FROM secclaw-web:latest
+
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends python3-paramiko \
+    && rm -rf /var/lib/apt/lists/* \
+    && (id sandbox >/dev/null 2>&1 || useradd -m -u 10001 sandbox)
+COPY scripts/openshell-ssh-inventory.py /opt/secclaw/inventory.py
+USER sandbox
+WORKDIR /home/sandbox

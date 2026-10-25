@@ -1,0 +1,16 @@
+version: 1
+filesystem_policy:
+  include_workdir: true
+  read_only:
+    - /opt/secclaw
+network_policies:
+  ssh_target:
+    name: ssh_target
+    endpoints:
+      - host: 192-168-43-161.sslip.io
+        port: 22
+        protocol: tcp
+        allowed_ips:
+          - 192.168.43.161/32
+    binaries:
+      - path: /usr/bin/python3.11

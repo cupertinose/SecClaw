@@ -58,6 +58,39 @@ DATABASE_URL=postgresql://secclaw:secclaw_dev@127.0.0.1:5432/secclaw \
 
 Re-importing a report with the same scan start time does not create a duplicate.
 
+## OpenShell SSH reports
+
+The dashboard offers **OpenShell 生成安全报告** for scanned devices with port 22
+open. The action is restricted to `sys_admin` and to the single IP configured in
+`OPENSHELL_SSH_TARGET_IP`. A Python SSH client runs inside an OpenShell sandbox,
+checks the pinned SSH host key, logs in as `dell`, and runs a fixed set of
+read-only inventory commands. The web server stores the evidence, sends it to
+the local vLLM model, and displays the model's suggested remediation and
+validation steps. It never applies those steps automatically.
+
+The local setup uses [OpenShell](https://github.com/NVIDIA/OpenShell) 0.1.5,
+the `secclaw-ssh` sandbox, [Dockerfile.openshell-ssh](Dockerfile.openshell-ssh),
+and [openshell-ssh-policy.yaml](openshell-ssh-policy.yaml). Build the web image
+first, then build the sandbox image and create the sandbox:
+
+```bash
+docker compose build web
+docker build -t secclaw-openshell-ssh:local -f web/Dockerfile.openshell-ssh web
+openshell sandbox create --name secclaw-ssh --from secclaw-openshell-ssh:local \
+  --policy web/openshell-ssh-policy.yaml --detach
+```
+
+OpenShell's native TCP policy requires a DNS hostname. This configuration uses
+an exact `sslip.io` name and pins its resolved address to `192.168.43.161/32`.
+For another target, update both the policy and `compose.override.yaml`, and
+pin that target's verified SSH host key fingerprint. The policy permits only
+the sandbox's Python binary to reach TCP port 22.
+
+The Compose override mounts the host OpenShell CLI and client configuration
+into the web container and uses host networking for the local gateway and
+vLLM. Set `OPENSHELL_SSH_PASSWORD` in the ignored root `.env` file. Never commit
+the password. A failed SSH authentication produces no report.
+
 ## Database commands
 
 ```bash

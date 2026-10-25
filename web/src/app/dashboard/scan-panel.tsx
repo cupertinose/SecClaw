@@ -29,6 +29,7 @@ type Device = {
   lastScanId: number;
   ports: { port: number; status: string; models: string[]; lastSeenAt: string; scanId: number }[];
 };
+type SshReport = { id: number; host: string; createdAt: string; evidence: string; analysis: string | null; analysisError: string | null };
 
 export default function ScanPanel() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -40,6 +41,10 @@ export default function ScanPanel() {
   const [tab, setTab] = useState<"devices" | "scans" | "discovery">("devices");
   const [deviceFilter, setDeviceFilter] = useState("");
   const [createPeriod, setCreatePeriod] = useState("once");
+  const [sshBusyHost, setSshBusyHost] = useState<string | null>(null);
+  const [sshResult, setSshResult] = useState("");
+  const [sshReports, setSshReports] = useState<SshReport[]>([]);
+  const [sshTargetIp, setSshTargetIp] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -50,6 +55,12 @@ export default function ScanPanel() {
       setDevices(data.devices ?? []);
       setDefaults(data.defaults);
       setSelected((current) => current ?? data.jobs[0]?.id ?? null);
+      const reportResponse = await fetch("/api/openshell", { cache: "no-store" });
+      if (reportResponse.ok) {
+        const reportData = await reportResponse.json();
+        setSshReports(reportData.reports ?? []);
+        setSshTargetIp(reportData.targetIp ?? null);
+      }
     } catch (cause) {
       setError(String(cause));
     }
@@ -107,6 +118,23 @@ export default function ScanPanel() {
 
   return (
     <section className="mt-8 space-y-6">
+  async function verifySsh(host: string) {
+    setSshBusyHost(host);
+    setSshResult("");
+    try {
+      const response = await fetch("/api/openshell", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ host }),
+      });
+      const data = await response.json();
+      setSshResult(response.ok ? `${host}: 报告已生成` : `${host}: ${data.error}`);
+      if (response.ok) await refresh();
+    } catch {
+      setSshResult(`${host}: Could not contact the web server`);
+    } finally {
+      setSshBusyHost(null);
+    }
+  }
+
       <div role="tablist" aria-label="Scan sections" className="flex flex-wrap gap-2 border-b border-slate-700 pb-3">
         {([ ["devices", "Dashboard"], ["scans", "Scans"], ["discovery", "Devices"] ] as const).map(([key, label]) =>
           <button key={key} role="tab" aria-selected={tab === key} onClick={() => setTab(key)}
@@ -119,6 +147,7 @@ export default function ScanPanel() {
       {tab === "devices" && <div className="rounded-xl border border-slate-700 p-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
+      {sshResult && <p role="status" className="rounded-lg bg-slate-800 p-3 text-slate-100">{sshResult}</p>}
             <h2 className="text-xl font-semibold">Scanned devices and ports</h2>
             <p className="mt-1 text-sm text-slate-400">
               {devices.length} {devices.length === 1 ? "device" : "devices"} found across all completed scans. Latest result shown per port.
@@ -133,7 +162,14 @@ export default function ScanPanel() {
           {visibleDevices.map((device) => <article key={device.host} className="rounded-lg border border-slate-700 bg-slate-950/50 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-mono text-base font-semibold text-cyan-300">{device.host}</h3>
-              <p className="text-xs text-slate-400">Last seen {new Date(device.lastSeenAt).toLocaleString()} · Scan #{device.lastScanId}</p>
+              <div className="flex items-center gap-3">
+                {device.host === sshTargetIp && device.ports.some((port) => port.port === 22 && port.status === "open") &&
+                  <button disabled={sshBusyHost !== null} onClick={() => void verifySsh(device.host)}
+                    className="rounded border border-cyan-600 px-3 py-1 text-xs text-cyan-200 hover:bg-cyan-950 disabled:opacity-50">
+                    {sshBusyHost === device.host ? "正在采集和分析…" : "OpenShell 生成安全报告"}
+                  </button>}
+                <p className="text-xs text-slate-400">Last seen {new Date(device.lastSeenAt).toLocaleString()} · Scan #{device.lastScanId}</p>
+              </div>
             </div>
             {device.ports.length ? <div className="mt-3 overflow-x-auto">
               <table className="w-full min-w-lg text-left text-sm">
@@ -154,6 +190,13 @@ export default function ScanPanel() {
           {!visibleDevices.length && <p className="rounded-lg bg-slate-950 p-4 text-sm text-slate-400">
             {devices.length ? "No devices match this filter." : "No scanned devices yet. Run or import a completed scan to populate this view."}
           </p>}
+            {sshReports.filter((report) => report.host === device.host).slice(0, 1).map((report) =>
+              <div key={report.id} className="mt-4 space-y-3 rounded-lg border border-slate-700 p-4 text-sm">
+                <h4 className="font-semibold">安全报告 #{report.id} · {new Date(report.createdAt).toLocaleString()}</h4>
+                <details><summary className="cursor-pointer text-cyan-300">查看 OpenShell 原始观测</summary>
+                  <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded bg-slate-900 p-3">{report.evidence}</pre></details>
+                <div className="whitespace-pre-wrap text-slate-200">{report.analysis ?? `模型分析不可用：${report.analysisError ?? "未知错误"}`}</div>
+              </div>)}
         </div>
       </div>}
 

@@ -1,0 +1,17 @@
+services:
+  web:
+    network_mode: host
+    ports: !reset []
+    environment:
+      DATABASE_URL: postgresql://secclaw:secclaw_dev@127.0.0.1:5432/secclaw
+      VLLM_HOST: http://127.0.0.1:8000
+      OPENSHELL_SANDBOX: secclaw-ssh
+      OPENSHELL_SSH_PASSWORD: ${OPENSHELL_SSH_PASSWORD:-}
+      OPENSHELL_SSH_TARGET_IP: 192.168.43.161
+      OPENSHELL_SSH_HOST: 192-168-43-161.sslip.io
+      OPENSHELL_SSH_HOST_KEY: SHA256:rqZB8NI0t3LWFIgk8RZGNFAu0wsRvZJT1NXricdCdOI
+    volumes:
+      - ${HOME}/.local/opt/openshell/usr/bin/openshell:/usr/local/bin/openshell:ro
+      - ${HOME}/.config/openshell:/root/.config/openshell:ro
+    command: >-
+      sh -c "npm install --no-audit --no-fund && npm run db:push && npm run db:import-users && npm run dev -- --hostname 127.0.0.1"
