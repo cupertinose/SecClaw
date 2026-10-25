@@ -32,7 +32,9 @@ The login page is at <http://localhost:3000/login>. Set a strong, unique
 
 ## Network scanner
 
-Start the web app and scanner with `docker compose up -d --build web scanner`.
+Start the web app, scanner, and mDNS discovery worker with
+`./scripts/start-web.sh` from the repository root. The discovery worker runs
+as a systemd user service so it can read the host's Avahi service cache.
 The scanner container uses the Linux host network and `NET_RAW` capability so
 it can send ARP requests through `wlP9s9`. The scan form is prefilled with
 `192.168.32.0/20`, interface `wlP9s9`, and TCP port `8000`; an admin can edit
@@ -40,6 +42,11 @@ these values for each manual scan or saved schedule.
 The signed-in `sys_admin` dashboard can queue one scan and configure a schedule
 from 15 minutes to 7 days. Jobs and results are stored in PostgreSQL, and
 the separate scanner service keeps schedules running while the page is closed.
+
+The **Device discovery** tab browses mDNS/Bonjour announcements on `wlP9s9`
+and lists unique advertised IPv4 addresses, names, and services. It can find
+devices on other routed subnets, but the list is not a complete count of
+connected Wi-Fi clients. Set `DISCOVERY_INTERFACE` for the user service if needed.
 
 Import an existing scanner JSON report as a completed dashboard job with:
 

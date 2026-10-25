@@ -6,4 +6,5 @@ cd "$repo_root"
 
 # Compose also starts PostgreSQL because the web service depends on it.
 docker compose up --detach --build web scanner
+"$repo_root/scripts/start-discovery.sh"
 docker compose ps web scanner

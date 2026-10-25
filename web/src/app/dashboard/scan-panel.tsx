@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import DeviceDiscovery from "./device-discovery";
 
 type Config = {
   targets: string; ports: string; interface: string; arpInterval: number;
@@ -36,7 +37,7 @@ export default function ScanPanel() {
   const [selected, setSelected] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<"devices" | "scans">("devices");
+  const [tab, setTab] = useState<"devices" | "scans" | "discovery">("devices");
   const [deviceFilter, setDeviceFilter] = useState("");
   const [createPeriod, setCreatePeriod] = useState("once");
 
@@ -107,7 +108,7 @@ export default function ScanPanel() {
   return (
     <section className="mt-8 space-y-6">
       <div role="tablist" aria-label="Scan sections" className="flex flex-wrap gap-2 border-b border-slate-700 pb-3">
-        {([ ["scans", "Scans"], ["devices", "Dashboard"] ] as const).map(([key, label]) =>
+        {([ ["devices", "Dashboard"], ["scans", "Scans"], ["discovery", "Devices"] ] as const).map(([key, label]) =>
           <button key={key} role="tab" aria-selected={tab === key} onClick={() => setTab(key)}
             className={`rounded-lg px-4 py-2 ${tab === key ? "bg-cyan-700 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}>
             {label}{key === "scans" && active ? " · In progress" : ""}
@@ -219,6 +220,7 @@ export default function ScanPanel() {
           </>}
         </div>}
       </div>}
+      {tab === "discovery" && <DeviceDiscovery />}
     </section>
   );
 }
