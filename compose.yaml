@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: secclaw
       POSTGRES_PASSWORD: secclaw_dev
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - secclaw_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -26,7 +26,7 @@ services:
       NEXT_TELEMETRY_DISABLED: "1"
       WATCHPACK_POLLING: "true"
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     volumes:
       - ./web:/app
       - ./data:/data:ro
@@ -36,7 +36,7 @@ services:
       postgres:
         condition: service_healthy
     command: >-
-      sh -c "npm run db:push && npm run db:import-users && npm run dev -- --hostname 0.0.0.0"
+      sh -c "npm install --no-audit --no-fund && npm run db:push && npm run db:import-users && npm run dev -- --hostname 0.0.0.0"
 
 volumes:
   secclaw_postgres_data:
