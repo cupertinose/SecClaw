@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.secclaw/
+
+.env
+.env.*
+!.env.example
+
+node_modules/
+.next/
+
