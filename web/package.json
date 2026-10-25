@@ -11,7 +11,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:import-users": "tsx scripts/import-users.ts"
+    "db:import-users": "tsx scripts/import-users.ts",
+    "db:import-scan": "tsx scripts/import-scan.ts"
   },
   "engines": {
     "node": ">=20.19.0"

@@ -30,6 +30,27 @@ Open <http://localhost:3000>. The database health endpoint is available at
 The login page is at <http://localhost:3000/login>. Set a strong, unique
 `SESSION_SECRET` before deploying outside local development.
 
+## Network scanner
+
+Start the web app and scanner with `docker compose up -d --build web scanner`.
+The scanner container uses the Linux host network and `NET_RAW` capability so
+it can send ARP requests through `wlP9s9`. The scan form is prefilled with
+`192.168.32.0/20`, interface `wlP9s9`, and TCP port `8000`; an admin can edit
+these values for each manual scan or saved schedule.
+The signed-in `sys_admin` dashboard can queue one scan and configure a schedule
+from 15 minutes to 7 days. Jobs and results are stored in PostgreSQL, and
+the separate scanner service keeps schedules running while the page is closed.
+
+Import an existing scanner JSON report as a completed dashboard job with:
+
+```bash
+cd web
+DATABASE_URL=postgresql://secclaw:secclaw_dev@127.0.0.1:5432/secclaw \
+  npm run db:import-scan -- ../scan_20261025_141359.json
+```
+
+Re-importing a report with the same scan start time does not create a duplicate.
+
 ## Database commands
 
 ```bash

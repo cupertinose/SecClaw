@@ -38,6 +38,26 @@ services:
     command: >-
       sh -c "npm install --no-audit --no-fund && npm run db:push && npm run db:import-users && npm run dev -- --hostname 0.0.0.0"
 
+  scanner:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    network_mode: host
+    cap_add:
+      - NET_RAW
+    environment:
+      DATABASE_URL: postgresql://secclaw:secclaw_dev@127.0.0.1:5432/secclaw
+      SCAN_SCRIPT: /scripts/vllm_scan.sh
+      SCAN_TARGETS: 192.168.32.0/20
+      SCAN_INTERFACE: wlP9s9
+      SCAN_PORTS: "8000"
+      SCAN_ARP_INTERVAL: "100"
+    volumes:
+      - ./scripts:/scripts:ro
+    depends_on:
+      - web
+    command: node scripts/scan-worker.mjs
+
 volumes:
   secclaw_postgres_data:
   web_node_modules:
