@@ -3,57 +3,12 @@ import { desc, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { db } from "@/db";
-import { scanJobs, scanSettings } from "@/db/schema";
+import { devices, scanJobs, scanSettings } from "@/db/schema";
 import { sessionCookieName, verifySessionToken } from "@/lib/session";
 import { defaultScanConfig, parseScanConfig } from "@/lib/scan-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-type StoredScanResult = {
-  scan?: { host_discovery?: { online_hosts?: string[] } };
-  results?: { host?: string; port?: number; status?: string; models?: string[] }[];
-};
-
-function buildDeviceInventory(rows: { id: number; createdAt: Date; finishedAt: Date | null; result: unknown }[]) {
-  const devices = new Map<string, {
-    host: string;
-    lastSeenAt: string;
-    lastScanId: number;
-    ports: Map<number, { port: number; status: string; models: string[]; lastSeenAt: string; scanId: number }>;
-  }>();
-
-  // Rows are newest first, so the first observation is the one displayed.
-  for (const row of rows) {
-    const result = row.result as StoredScanResult | null;
-    const seenAt = (row.finishedAt ?? row.createdAt).toISOString();
-    const hosts = new Set(result?.scan?.host_discovery?.online_hosts ?? []);
-    for (const service of result?.results ?? []) {
-      if (service.host) hosts.add(service.host);
-    }
-    for (const host of hosts) {
-      if (!devices.has(host)) {
-        devices.set(host, { host, lastSeenAt: seenAt, lastScanId: row.id, ports: new Map() });
-      }
-    }
-    for (const service of result?.results ?? []) {
-      if (!service.host || !Number.isInteger(service.port)) continue;
-      const device = devices.get(service.host);
-      if (!device || device.ports.has(service.port!)) continue;
-      device.ports.set(service.port!, {
-        port: service.port!,
-        status: service.status ?? "unknown",
-        models: service.models ?? [],
-        lastSeenAt: seenAt,
-        scanId: row.id,
-      });
-    }
-  }
-
-  return [...devices.values()]
-    .map(({ ports, ...device }) => ({ ...device, ports: [...ports.values()].sort((a, b) => a.port - b.port) }))
-    .sort((a, b) => a.host.localeCompare(b.host, undefined, { numeric: true }));
-}
 
 async function adminSession() {
   const token = (await cookies()).get(sessionCookieName)?.value;
@@ -75,17 +30,19 @@ export async function GET() {
   if (!(await adminSession())) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const [settings] = await db.select().from(scanSettings).where(eq(scanSettings.id, 1));
   const jobs = await db.select().from(scanJobs).orderBy(desc(scanJobs.id));
-  const inventoryRows = await db.select({
-    id: scanJobs.id,
-    createdAt: scanJobs.createdAt,
-    finishedAt: scanJobs.finishedAt,
-    result: scanJobs.result,
-  }).from(scanJobs).where(eq(scanJobs.status, "completed")).orderBy(desc(scanJobs.id));
+  const deviceRows = await db.select().from(devices);
   return NextResponse.json({
     defaults: defaultScanConfig,
     settings: settings ?? { enabled: false, intervalMinutes: 60, nextRunAt: null, config: defaultScanConfig },
     jobs,
-    devices: buildDeviceInventory(inventoryRows),
+    devices: deviceRows.map((device) => {
+      const seenAt = device.lastSeenAt.toISOString();
+      const observationId = device.lastScanId ?? device.lastDiscoveryId ?? 0;
+      const ports = (device.ports as { port: number; status: string; models?: string[] }[])
+        .map((port) => ({ ...port, models: port.models ?? [], lastSeenAt: seenAt, scanId: observationId }))
+        .sort((a, b) => a.port - b.port);
+      return { host: device.ip, hostname: device.hostname, names: device.names, lastSeenAt: seenAt, lastScanId: observationId, ports };
+    }).sort((a, b) => a.host.localeCompare(b.host, undefined, { numeric: true })),
   });
 }
 

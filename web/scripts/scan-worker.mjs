@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { readFile, unlink } from "node:fs/promises";
 import postgres from "postgres";
+import { storeScanDevices } from "./device-inventory.mjs";
 
 const db = postgres(process.env.DATABASE_URL, { max: 1 });
 const script = process.env.SCAN_SCRIPT || "/scripts/vllm_scan.sh";
@@ -23,7 +24,11 @@ async function runScan(id, config) {
     });
     if (code !== 0) throw new Error(log.trim() || `Scanner exited with code ${code}`);
     const result = JSON.parse(await readFile(output, "utf8"));
-    await db`update scan_jobs set status = 'completed', finished_at = now(), result = ${db.json(result)} where id = ${id}`;
+    const finishedAt = new Date();
+    await db.begin(async (tx) => {
+      await storeScanDevices(tx, id, result, finishedAt);
+      await tx`update scan_jobs set status = 'completed', finished_at = ${finishedAt}, result = ${tx.json(result)} where id = ${id}`;
+    });
   } catch (error) {
     await db`update scan_jobs set status = 'failed', finished_at = now(), error = ${String(error).slice(0, 4000)} where id = ${id}`;
   } finally {

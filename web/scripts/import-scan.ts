@@ -77,6 +77,8 @@ async function main() {
     finishedAt,
     result: report,
   }).returning({ id: scanJobs.id });
+  const { storeScanDevices } = await import("./device-inventory.mjs");
+  await storeScanDevices(db.$client, job.id, report, finishedAt);
   console.log(`Imported ${path.basename(absolutePath)} as scan job #${job.id}`);
 }
 

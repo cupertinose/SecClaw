@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { config } from "dotenv";
 import postgres from "postgres";
+import { storeDiscoveredDevices } from "./device-inventory.mjs";
 
 config({ path: ".env.local", quiet: true });
 const db = postgres(process.env.DATABASE_URL, { max: 1 });
@@ -19,7 +20,12 @@ async function runDiscovery(id) {
       child.on("close", resolve);
     });
     if (code !== 0) throw new Error(stderr.trim() || `Discovery exited with code ${code}`);
-    await db`update discovery_jobs set status = 'completed', finished_at = now(), result = ${db.json(JSON.parse(stdout))} where id = ${id}`;
+    const result = JSON.parse(stdout);
+    const finishedAt = new Date();
+    await db.begin(async (tx) => {
+      await storeDiscoveredDevices(tx, id, result, finishedAt);
+      await tx`update discovery_jobs set status = 'completed', finished_at = ${finishedAt}, result = ${tx.json(result)} where id = ${id}`;
+    });
   } catch (error) {
     await db`update discovery_jobs set status = 'failed', finished_at = now(), error = ${String(error).slice(0, 4000)} where id = ${id}`;
   }

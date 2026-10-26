@@ -43,6 +43,19 @@ export const discoveryJobs = pgTable("discovery_jobs", {
   result: jsonb("result"),
 });
 
+export const devices = pgTable("devices", {
+  ip: text("ip").primaryKey(),
+  hostname: text("hostname"),
+  names: jsonb("names").notNull().default([]),
+  ports: jsonb("ports").notNull().default([]),
+  services: jsonb("services").notNull().default([]),
+  observations: jsonb("observations").notNull().default([]),
+  firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).defaultNow().notNull(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow().notNull(),
+  lastScanId: integer("last_scan_id"),
+  lastDiscoveryId: integer("last_discovery_id"),
+});
+
 export const sshReports = pgTable("ssh_reports", {
   id: serial("id").primaryKey(),
   host: text("host").notNull(),
