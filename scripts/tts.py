@@ -4,13 +4,18 @@
 from __future__ import annotations
 
 import argparse
-import json
+import asyncio
+import base64
 import os
 import re
+import shutil
+import subprocess
 import sys
-import urllib.error
-import urllib.request
+import tempfile
+import wave
 from pathlib import Path
+
+from openai import AsyncOpenAI
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,40 +55,64 @@ def transcript_text(path: Path) -> str:
     return "\n\n".join(sentences)
 
 
-def synthesize(text: str, output: Path, *, voice: str, instructions: str) -> None:
+async def synthesize(text: str, output: Path, *, voice: str, instructions: str) -> None:
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY is missing from the environment or .env")
-    if len(text) > 4096:
-        raise RuntimeError(f"Transcript is {len(text)} characters; the Speech API limit is 4096")
-
-    payload = json.dumps(
-        {
-            "model": "gpt-4o-mini-tts",
-            "voice": voice,
-            "input": text,
+    client = AsyncOpenAI(api_key=api_key)
+    pcm = bytearray()
+    async with client.realtime.connect(model="gpt-realtime-2.1-mini") as connection:
+        await connection.session.update(session={
+            "type": "realtime",
+            "model": "gpt-realtime-2.1-mini",
+            "output_modalities": ["audio"],
             "instructions": instructions,
-            "response_format": "mp3",
-        }
-    ).encode("utf-8")
-    request = urllib.request.Request(
-        "https://api.openai.com/v1/audio/speech",
-        data=payload,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=180) as response:
-            audio = response.read()
-    except urllib.error.HTTPError as error:
-        detail = error.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"OpenAI Speech API returned HTTP {error.code}: {detail}") from error
+            "audio": {
+                "output": {
+                    "format": {"type": "audio/pcm", "rate": 24000},
+                    "voice": voice,
+                },
+            },
+        })
+        await connection.conversation.item.create(item={
+            "type": "message",
+            "role": "user",
+            "content": [{
+                "type": "input_text",
+                "text": f"Read the following transcript verbatim. Do not add or omit any words.\n\n{text}",
+            }],
+        })
+        await connection.response.create()
+        async for event in connection:
+            if event.type == "response.output_audio.delta":
+                pcm.extend(base64.b64decode(event.delta))
+            elif event.type == "error":
+                raise RuntimeError(f"Realtime API error: {event.error.message}")
+            elif event.type == "response.done":
+                if getattr(event.response, "status", None) == "failed":
+                    raise RuntimeError("Realtime audio generation failed")
+                break
 
+    if not pcm:
+        raise RuntimeError("Realtime API returned no audio")
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_bytes(audio)
+    with tempfile.TemporaryDirectory(prefix="secclaw-tts-") as temp_dir:
+        wav_path = Path(temp_dir) / "transcript.wav"
+        with wave.open(str(wav_path), "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(24000)
+            wav_file.writeframes(pcm)
+        ffmpeg = shutil.which("ffmpeg")
+        bundled = Path("/tmp/secclaw-ffmpeg/node_modules/ffmpeg-static/ffmpeg")
+        if not ffmpeg and bundled.is_file():
+            ffmpeg = str(bundled)
+        if not ffmpeg:
+            raise RuntimeError("ffmpeg is required to encode transcript.mp3")
+        subprocess.run(
+            [ffmpeg, "-y", "-loglevel", "error", "-i", str(wav_path), "-codec:a", "libmp3lame", "-b:a", "128k", str(output)],
+            check=True,
+        )
 
 
 def main() -> int:
@@ -105,8 +134,8 @@ def main() -> int:
         text = transcript_text(args.input.resolve())
         if not text:
             raise RuntimeError("The transcript contains no speakable text")
-        synthesize(text, args.output.resolve(), voice=args.voice, instructions=args.instructions)
-    except (OSError, RuntimeError) as error:
+        asyncio.run(synthesize(text, args.output.resolve(), voice=args.voice, instructions=args.instructions))
+    except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
         print(f"tts: {error}", file=sys.stderr)
         return 1
 

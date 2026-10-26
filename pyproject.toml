@@ -7,7 +7,7 @@ name = "secclaw"
 version = "0.1.0"
 description = "Local-first, approval-gated security operations MVP"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["openai[realtime]>=2.0"]
 
 [project.scripts]
 secclaw = "secclaw.cli:main"
