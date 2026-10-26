@@ -33,7 +33,7 @@ class FakeModel:
         return None
 
     def summarize(self, findings):
-        return f"本地摘要：{len(findings)} 个发现项"
+        return f"Local summary: {len(findings)} findings"
 
 
 class SecClawTests(unittest.TestCase):

@@ -19,11 +19,11 @@ class DiscordNotifier:
         if not self.webhook_url:
             return False
         content = (
-            f"SecClaw 发现项 **{finding['severity']}** `{finding['id']}`\n"
+            f"SecClaw finding **{finding['severity']}** `{finding['id']}`\n"
             f"{finding['title']} — `{finding['asset']}:{finding['port']}`\n"
-            f"拟执行变更：{plan['summary']}\n"
-            f"计划哈希：`{plan['plan_hash']}`\n"
-            "请在本地 SecClaw API 中查看证据并批准、拒绝、延后或接受风险。"
+            f"Proposed change: {plan['summary']}\n"
+            f"Plan hash: `{plan['plan_hash']}`\n"
+            "Review the evidence in the local SecClaw API, then approve, reject, defer, or accept the risk."
         )
         request = urllib.request.Request(
             self.webhook_url,

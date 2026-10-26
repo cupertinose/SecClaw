@@ -352,10 +352,10 @@ export default function ScanPanel() {
             </div> : <p className="mt-3 text-sm text-slate-400">No open ports were recorded for this device.</p>}
             {sshReports.filter((report) => report.host === device.host).slice(0, 1).map((report) =>
               <div key={report.id} className="mt-4 space-y-3 rounded-lg border border-slate-700 p-4 text-sm">
-                <h4 className="font-semibold">安全报告 #{report.id} · {new Date(report.createdAt).toLocaleString()}</h4>
-                <details><summary className="cursor-pointer text-cyan-300">查看 OpenShell 原始观测</summary>
+                <h4 className="font-semibold">Security report #{report.id} · {new Date(report.createdAt).toLocaleString()}</h4>
+                <details><summary className="cursor-pointer text-cyan-300">View raw OpenShell observations</summary>
                   <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded bg-slate-900 p-3">{report.evidence}</pre></details>
-                <div className="whitespace-pre-wrap text-slate-200">{report.analysis ?? `模型分析不可用：${report.analysisError ?? "未知错误"}`}</div>
+                <div className="whitespace-pre-wrap text-slate-200">{report.analysis ?? `Model analysis unavailable: ${report.analysisError ?? "Unknown error"}`}</div>
               </div>)}
           </article>)}
           {!visibleDevices.length && <p className="rounded-lg bg-slate-950 p-4 text-sm text-slate-400">

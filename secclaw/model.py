@@ -39,8 +39,10 @@ class OllamaModel:
             for item in findings
         ]
         prompt = (
-            "用中文简洁总结以下授权安全扫描结果。必须把工具观测事实与推断分开，"
-            "不得声称已利用漏洞，不得建议攻击行为。数据：" + json.dumps(facts, ensure_ascii=False)
+            "Concisely summarize the following authorized security scan results in English. "
+            "Clearly separate facts observed by tools from inferences. Do not claim that any "
+            "vulnerability was exploited or recommend offensive actions. Data: "
+            + json.dumps(facts, ensure_ascii=False)
         )
         payload = json.dumps({"model": self.model, "stream": False, "messages": [{"role": "user", "content": prompt}]}).encode()
         request = urllib.request.Request(f"{self.host}/api/chat", data=payload, headers={"Content-Type": "application/json"}, method="POST")

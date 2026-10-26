@@ -43,9 +43,9 @@ async function main() {
   const finishedAt = validDate(report.scan.finished_at, "scan.finished_at");
   const input = report.scan.input ?? {};
   const scanConfig = {
-    targets: input.targets ?? "未记录",
-    ports: input.ports ?? "未记录",
-    interface: input.capture_interface ?? "未记录",
+    targets: input.targets ?? "Not recorded",
+    ports: input.ports ?? "Not recorded",
+    interface: input.capture_interface ?? "Not recorded",
     arpInterval: 100,
     jobs: input.jobs ?? 1,
     timeout: input.timeout_seconds ?? 2,
