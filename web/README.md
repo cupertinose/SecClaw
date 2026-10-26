@@ -77,7 +77,7 @@ open port is a confirmed vulnerability.
 
 ## OpenShell SSH reports
 
-The dashboard offers **OpenShell 生成安全报告** for scanned devices with port 22
+The dashboard offers **Generate OpenShell security report** for scanned devices with port 22
 open. The action is restricted to `sys_admin` and to the single IP configured in
 `OPENSHELL_SSH_TARGET_IP`. A Python SSH client runs inside an OpenShell sandbox,
 checks the pinned SSH host key, logs in as `dell`, and runs a fixed set of

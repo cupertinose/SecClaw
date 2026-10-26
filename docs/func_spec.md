@@ -1,115 +1,115 @@
-# SecClaw 功能规格说明
+# SecClaw Functional Specification
 
-## 1. 产品概述
+## 1. Product overview
 
-SecClaw 是运行在 Dell Pro Max GB10 上的本地优先安全运维代理。它面向企业内部、明确授权的网络和主机，完成“发现、分析、审批、修复、验证、审计”的闭环。
+SecClaw is a local-first security operations agent that runs on the Dell Pro Max GB10. It provides a closed loop of discovery, analysis, approval, remediation, verification, and auditing for explicitly authorized enterprise networks and hosts.
 
-系统使用本地大语言模型处理扫描结果、解释风险并生成修复方案。网络拓扑、服务信息、漏洞发现和对话内容默认不离开本机。
+The system uses a local large language model to process scan results, explain risks, and generate remediation plans. Network topology, service information, vulnerability findings, and conversation content remain on the local machine by default.
 
-## 2. 产品目标
+## 2. Product goals
 
-- 持续发现授权资产中的暴露服务和常见配置风险。
-- 将原始扫描结果转化为可理解、可排序、可执行的风险报告。
-- 为每项风险生成修复、验证和回滚方案。
-- 对任何会改变系统状态的操作强制执行人工审批。
-- 修复后自动复扫，提供风险消除的证据。
-- 保留完整且不可混淆的操作审计记录。
-- 在断网状态下完成核心推理和演示流程。
+- Continuously discover exposed services and common configuration risks in authorized assets.
+- Convert raw scan results into understandable, sortable, and actionable risk reports.
+- Generate remediation, verification, and rollback plans for each risk.
+- Require human approval for every operation that changes system state.
+- Rescan automatically after remediation and provide evidence that the risk was removed.
+- Retain complete and unambiguous operational audit records.
+- Complete core reasoning and demonstration workflows without an internet connection.
 
-## 3. 非目标
+## 3. Non-goals
 
-SecClaw 不提供以下能力：
+SecClaw does not provide the following capabilities:
 
-- 扫描未经授权的公网、会场 Wi-Fi 或第三方资产。
-- 漏洞利用、密码爆破、钓鱼、持久化或规避检测。
-- 自动执行未经批准的高风险修复。
-- 替代企业漏洞管理、SIEM、EDR 或补丁管理平台。
-- 在 MVP 中覆盖所有操作系统、云平台和网络设备。
+- Scanning unauthorized public networks, event Wi-Fi, or third-party assets.
+- Vulnerability exploitation, password brute forcing, phishing, persistence, or detection evasion.
+- Automatic execution of unapproved high-risk remediation.
+- Replacement for enterprise vulnerability management, SIEM, EDR, or patch-management platforms.
+- Coverage of every operating system, cloud platform, and network device in the MVP.
 
-## 4. 目标用户
+## 4. Target users
 
-- 中小企业 IT 管理员
-- 安全运营和 SecOps 团队
-- DevOps、平台工程和 SRE 团队
-- 需要本地处理敏感基础设施数据的组织
+- Small and medium-sized business IT administrators
+- Security operations and SecOps teams
+- DevOps, platform engineering, and SRE teams
+- Organizations that need to process sensitive infrastructure data locally
 
-## 5. 核心使用场景
+## 5. Core use cases
 
-### 5.1 授权范围配置
+### 5.1 Authorized scope configuration
 
-管理员创建扫描任务前必须定义授权范围：
+Administrators must define the authorized scope before creating a scan job:
 
-- 允许的 IPv4 地址或 CIDR
-- 允许的主机名
-- 允许的端口范围
-- 扫描时间窗口
-- 任务所有者和业务说明
-- 是否允许执行修复
+- Permitted IPv4 addresses or CIDR ranges
+- Permitted hostnames
+- Permitted port ranges
+- Scan time windows
+- Job owner and business justification
+- Whether remediation is permitted
 
-系统拒绝环节外目标、过宽公网范围和无任务所有者的扫描请求。
+The system rejects out-of-scope targets, excessively broad public ranges, and scan requests without a job owner.
 
-### 5.2 安全扫描
+### 5.2 Security scanning
 
-系统对授权资产执行非破坏性扫描，并收集：
+The system performs non-destructive scans of authorized assets and collects:
 
-- 主机可达性
-- TCP 开放端口
-- 服务名称和有限版本信息
-- TLS 证书状态
-- 常见不安全服务和暴露面
-- 演示环境中的预定义配置问题
+- Host reachability
+- Open TCP ports
+- Service names and limited version information
+- TLS certificate status
+- Common insecure services and exposure points
+- Predefined configuration issues in the demonstration environment
 
-扫描器必须使用固定参数模板。LLM 不得直接拼接或执行任意扫描命令。
+The scanner must use fixed parameter templates. The LLM must never construct or directly execute arbitrary scan commands.
 
-### 5.3 风险分析
+### 5.3 Risk analysis
 
-本地 LLM 将扫描结果标准化为发现项，每项包含：
+The local LLM normalizes scan results into findings. Each finding contains:
 
-- 标题和唯一标识
-- 受影响资产
-- 证据
-- 严重程度
-- 业务影响
-- 置信度
-- 建议修复
-- 验证步骤
-- 回滚步骤
+- Title and unique identifier
+- Affected asset
+- Evidence
+- Severity
+- Business impact
+- Confidence
+- Recommended remediation
+- Verification steps
+- Rollback steps
 
-严重程度分为 `critical`、`high`、`medium`、`low` 和 `info`。
+Severity levels are `critical`, `high`, `medium`, `low`, and `info`.
 
-### 5.4 人工审批
+### 5.4 Human approval
 
-SecClaw 通过 Slack、Discord 或 Telegram 发送摘要，并提供以下动作：
+SecClaw sends summaries through Slack, Discord, or Telegram and offers these actions:
 
-- 查看证据
-- 查看拟执行变更
-- 批准一次
-- 拒绝
-- 延后
-- 标记为已接受风险
+- View evidence
+- View the proposed change
+- Approve once
+- Reject
+- Defer
+- Mark as accepted risk
 
-审批记录必须包含审批人、时间、发现项、命令摘要和计划哈希。扫描批准不能自动视为修复批准。
+Approval records must contain the approver, time, finding, command summary, and plan hash. Scan approval must not be treated automatically as remediation approval.
 
-### 5.5 沙箱修复
+### 5.5 Sandbox remediation
 
-修复由 OpenShell 在受限环境中执行。执行前必须满足：
+OpenShell performs remediation in a restricted environment. Before execution, the following conditions must be satisfied:
 
-- 目标仍在授权范围内
-- 审批尚未过期
-- 实际计划与批准计划哈希一致
-- 已生成回滚方案
-- 命令来自允许列表或受控适配器
+- The target remains within the authorized scope.
+- Approval has not expired.
+- The actual plan matches the approved plan hash.
+- A rollback plan has been generated.
+- Commands come from an allowlist or controlled adapter.
 
-MVP 支持的修复类型：
+The MVP supports these remediation types:
 
-- 关闭演示容器中的非必要服务
-- 调整演示环境防火墙规则
-- 修改演示应用中的安全配置
-- 更新演示容器的软件包或镜像配置
+- Stop unnecessary services in demonstration containers.
+- Adjust firewall rules in the demonstration environment.
+- Change security configuration in demonstration applications.
+- Update package or image configuration in demonstration containers.
 
-### 5.6 修复验证
+### 5.6 Remediation verification
 
-修复完成后，系统自动执行范围受限的复扫，并对比修复前后证据。发现项状态包括：
+After remediation, the system automatically performs a scoped rescan and compares evidence from before and after the change. Finding states include:
 
 - `open`
 - `awaiting_approval`
@@ -118,147 +118,146 @@ MVP 支持的修复类型：
 - `failed`
 - `accepted_risk`
 
-只有复扫证据证明问题消失后，状态才能变为 `resolved`。
+A finding can become `resolved` only after rescan evidence proves that the issue is gone.
 
-## 6. 功能需求
+## 6. Functional requirements
 
-### FR-01 授权策略
+### FR-01 Authorization policy
 
-- 系统必须维护明确的目标允许列表。
-- 每个扫描任务必须引用一个有效授权策略。
-- 系统必须在扫描和修复前分别重新校验目标。
-- 拒绝事件必须写入审计日志。
+- The system must maintain an explicit target allowlist.
+- Every scan job must reference a valid authorization policy.
+- The system must revalidate the target separately before scanning and remediation.
+- Denial events must be written to the audit log.
 
-### FR-02 扫描任务
+### FR-02 Scan jobs
 
-- 用户可以创建、启动、取消和查看扫描任务。
-- 同一资产的重复任务可以合并或排队。
-- 扫描必须支持超时、速率限制和并发限制。
-- 原始输出与标准化结果必须分别保存。
+- Users can create, start, cancel, and inspect scan jobs.
+- Duplicate jobs for the same asset can be merged or queued.
+- Scanning must support timeout, rate, and concurrency limits.
+- Raw output and normalized results must be stored separately.
 
-### FR-03 发现项管理
+### FR-03 Finding management
 
-- 系统必须对重复发现项进行稳定去重。
-- 用户可以按资产、严重程度、状态和时间筛选。
-- 每项发现必须关联原始证据。
-- LLM 推断内容必须与工具观测事实清晰区分。
+- The system must deduplicate repeated findings consistently.
+- Users can filter by asset, severity, status, and time.
+- Every finding must link to its raw evidence.
+- LLM inferences must be clearly distinguished from tool-observed facts.
 
-### FR-04 修复计划
+### FR-04 Remediation plans
 
-- 每个计划必须包含前置检查、变更、验证和回滚步骤。
-- 执行前必须提供人类可读 diff 或等价变更摘要。
-- 计划在审批后发生变化时必须重新审批。
+- Every plan must include prechecks, changes, verification, and rollback steps.
+- A human-readable diff or equivalent change summary must be provided before execution.
+- A plan changed after approval must be approved again.
 
-### FR-05 通知与交互
+### FR-05 Notifications and interaction
 
-- MVP 至少支持 Slack、Discord 或 Telegram 中的一种渠道。
-- 用户可以通过自然语言查询风险摘要。
-- 改变系统状态的自然语言请求必须转化为结构化计划并经过审批。
+- The MVP must support at least one of Slack, Discord, or Telegram.
+- Users can query risk summaries using natural language.
+- Natural-language requests that change system state must be converted into structured plans and approved.
 
-### FR-06 审计
+### FR-06 Auditing
 
-- 记录任务创建、策略校验、工具调用、模型结论、审批、执行和验证事件。
-- 每条记录包含时间、主体、动作、对象、结果和关联 ID。
-- 敏感凭证不得写入日志。
+- Record job creation, policy validation, tool calls, model conclusions, approvals, execution, and verification events.
+- Every record contains a time, actor, action, object, result, and correlation ID.
+- Sensitive credentials must not be written to logs.
 
-### FR-07 本地运行
+### FR-07 Local operation
 
-- 推理必须在 GB10 本机完成。
-- 核心演示在无远程 LLM API 的情况下可运行。
-- 模型服务不可用时，系统必须安全失败且不得执行修复。
+- Inference must run locally on the GB10.
+- The core demonstration must work without a remote LLM API.
+- The system must fail safely and must not perform remediation when the model service is unavailable.
 
-## 7. 系统架构
+## 7. System architecture
 
-### 7.1 组件
+### 7.1 Components
 
-- **OpenClaw**：代理编排、任务状态和渠道交互。
-- **NemoClaw**：本地模型推理、安全分析和计划生成。
-- **OpenShell**：受限工具执行和修复沙箱。
-- **Scanner Adapter**：使用固定模板调用 Nmap 等本地工具。
-- **Policy Engine**：校验目标范围、动作类型和审批状态。
-- **Evidence Store**：保存原始扫描结果和复扫证据。
-- **Audit Store**：保存结构化审计事件。
-- **Local Model Server**：通过本地 API 提供模型推理。
+- **OpenClaw**: agent orchestration, job state, and channel interaction.
+- **NemoClaw**: local model inference, security analysis, and plan generation.
+- **OpenShell**: restricted tool execution and remediation sandbox.
+- **Scanner Adapter**: invokes local tools such as Nmap using fixed templates.
+- **Policy Engine**: validates target scope, action type, and approval state.
+- **Evidence Store**: stores raw scan results and rescan evidence.
+- **Audit Store**: stores structured audit events.
+- **Local Model Server**: provides model inference through a local API.
 
-### 7.2 数据流
+### 7.2 Data flow
 
-1. 用户提交授权范围和扫描请求。
-2. Policy Engine 校验目标。
-3. OpenShell 执行固定扫描模板。
-4. Scanner Adapter 标准化工具输出。
-5. NemoClaw 生成风险解释和修复候选方案。
-6. OpenClaw 将摘要发送到聊天渠道。
-7. 用户批准具体计划。
-8. Policy Engine 再次校验计划和审批。
-9. OpenShell 执行修复。
-10. 系统复扫并更新发现状态。
-11. 全流程写入 Audit Store。
+1. The user submits an authorized scope and scan request.
+2. The Policy Engine validates the target.
+3. OpenShell executes a fixed scan template.
+4. The Scanner Adapter normalizes tool output.
+5. NemoClaw generates a risk explanation and candidate remediation plan.
+6. OpenClaw sends the summary to a chat channel.
+7. The user approves a specific plan.
+8. The Policy Engine revalidates the plan and approval.
+9. OpenShell performs the remediation.
+10. The system rescans and updates the finding state.
+11. The complete workflow is written to the Audit Store.
 
-## 8. 安全控制
+## 8. Security controls
 
-- 默认拒绝所有未授权目标。
-- 禁止将用户输入直接插入 shell 命令。
-- 工具参数使用结构化 schema 和允许列表。
-- 扫描速率、并发和超时均设上限。
-- 修复使用最小权限身份执行。
-- 凭证通过环境注入或秘密存储提供，不进入提示词和日志。
-- 所有状态变更必须可追溯。
-- 对高风险修复提供回滚和紧急停止能力。
-- 演示使用隔离容器或专用靶场网络。
+- Deny every unauthorized target by default.
+- Never insert user input directly into shell commands.
+- Use structured schemas and allowlists for tool parameters.
+- Cap scan rate, concurrency, and timeout.
+- Perform remediation with a least-privilege identity.
+- Provide credentials through environment injection or secret storage, never through prompts or logs.
+- Make every state change traceable.
+- Provide rollback and emergency-stop capabilities for high-risk remediation.
+- Use isolated containers or a dedicated range network for demonstrations.
 
-## 9. MVP 范围
+## 9. MVP scope
 
-一日黑客松版本必须完成：
+The one-day hackathon version must include:
 
-- 一个隔离的易受攻击演示环境
-- 一个 CIDR/IP 允许列表
-- 非破坏性端口和服务扫描
-- 本地 LLM 风险摘要
-- 至少一个可修复的配置问题
-- 聊天渠道中的人工批准
-- OpenShell 沙箱修复
-- 自动复扫和前后对比
-- 简单 Web 页面或聊天式状态展示
-- 完整审计时间线
+- An isolated, intentionally vulnerable demonstration environment
+- A CIDR/IP allowlist
+- Non-destructive port and service scanning
+- Local LLM risk summaries
+- At least one remediable configuration issue
+- Human approval through a chat channel
+- OpenShell sandbox remediation
+- Automatic rescanning and before-and-after comparison
+- A simple web page or chat-style status display
+- A complete audit timeline
 
-## 10. 演示脚本
+## 10. Demonstration script
 
-1. 展示授权策略，只允许演示网络。
-2. 用户在聊天渠道请求“检查生产模拟环境”。
-3. SecClaw 发现一个不应公开的管理端口。
-4. 本地模型解释风险并生成防火墙修复计划。
-5. 用户查看 diff 并批准。
-6. OpenShell 在演示环境执行变更。
-7. SecClaw 自动复扫，证明端口不再暴露。
-8. 展示审计时间线和本地运行状态。
-9. 尝试请求扫描未授权目标，系统明确拒绝。
+1. Show an authorization policy that permits only the demonstration network.
+2. The user requests "Check the production simulation environment" through a chat channel.
+3. SecClaw discovers an administrative port that should not be public.
+4. The local model explains the risk and generates a firewall remediation plan.
+5. The user reviews the diff and approves it.
+6. OpenShell performs the change in the demonstration environment.
+7. SecClaw rescans automatically and proves that the port is no longer exposed.
+8. Show the audit timeline and local operation status.
+9. Request a scan of an unauthorized target and show that the system explicitly rejects it.
 
-## 11. 验收标准
+## 11. Acceptance criteria
 
-- 在断开远程 LLM 服务后仍能完成完整演示。
-- 未授权目标的扫描请求被拒绝且有审计记录。
-- 扫描结果能生成至少一个带证据的发现项。
-- 修复操作在未审批时无法执行。
-- 批准后的修复只能作用于授权演示目标。
-- 复扫能够证明发现项已解决或仍然存在。
-- 审计日志能够还原完整操作顺序。
-- 演示全过程不包含漏洞利用或攻击第三方资产。
+- The complete demonstration still works after disconnecting remote LLM services.
+- Scan requests for unauthorized targets are rejected and audited.
+- Scan results produce at least one evidence-backed finding.
+- Remediation cannot run without approval.
+- Approved remediation can affect only authorized demonstration targets.
+- Rescanning can prove whether a finding has been resolved or remains present.
+- The audit log can reconstruct the complete sequence of operations.
+- The demonstration never exploits vulnerabilities or attacks third-party assets.
 
-## 12. 非功能需求
+## 12. Non-functional requirements
 
-- 首屏或聊天确认响应时间小于 3 秒。
-- 小型演示网段扫描在 2 分钟内完成。
-- 扫描器异常不会导致代理执行未计划修复。
-- 所有核心组件能够在 GB10 上以容器或本地进程运行。
-- 服务重启后可以恢复任务和发现状态。
+- The initial screen or chat acknowledgement responds within three seconds.
+- A small demonstration subnet scan completes within two minutes.
+- Scanner failures do not cause the agent to perform unplanned remediation.
+- Every core component can run on the GB10 as a container or local process.
+- Job and finding state can be recovered after a service restart.
 
-## 13. 后续扩展
+## 13. Future extensions
 
-- 接入离线 CVE 和 CISA KEV 数据集
-- 主机基线和 CIS 配置检查
-- 容器镜像及软件物料清单分析
-- 多租户授权策略
-- ServiceNow、Jira 和 SIEM 集成
-- 风险趋势和 SLA 仪表板
-- 签名修复包与双人审批
-
+- Offline CVE and CISA KEV datasets
+- Host baselines and CIS configuration checks
+- Container image and software bill of materials analysis
+- Multi-tenant authorization policies
+- ServiceNow, Jira, and SIEM integrations
+- Risk trends and SLA dashboards
+- Signed remediation packages and two-person approval
