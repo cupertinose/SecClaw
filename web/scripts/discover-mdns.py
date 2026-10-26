@@ -27,21 +27,27 @@ def main():
         fields = line.split(";")
         if len(fields) < 9 or fields[0] != "=" or fields[1] != args.interface or fields[2] != "IPv4":
             continue
-        _, _, _, name, service, _, hostname, ip, *_ = fields
+        _, _, _, name, service, _, hostname, ip, port_text, *_ = fields
         try:
             ipaddress.IPv4Address(ip)
-        except ipaddress.AddressValueError:
+            port = int(port_text)
+            if not 1 <= port <= 65535:
+                raise ValueError
+        except (ipaddress.AddressValueError, ValueError):
             continue
         device = devices.setdefault(ip, {"ip": ip, "hostname": None, "names": set(), "services": set()})
         if hostname:
             device["hostname"] = hostname.rstrip(".")
         device["names"].add(name)
-        device["services"].add(service)
+        device["services"].add((service, port))
 
     result = []
     for device in devices.values():
         device["names"] = sorted(device["names"])
-        device["services"] = sorted(device["services"])
+        device["services"] = [
+            {"name": service, "port": port}
+            for service, port in sorted(device["services"])
+        ]
         result.append(device)
     result.sort(key=lambda device: ipaddress.IPv4Address(device["ip"]))
     print(json.dumps({"source": "mDNS via Avahi", "interface": args.interface,

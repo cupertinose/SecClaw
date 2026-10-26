@@ -12,6 +12,73 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type ScanResult = { results?: { host?: string; port?: number; status?: string }[] };
+type OpenShellSandbox = {
+  id?: string;
+  name?: string;
+  phase?: string;
+  workspace?: string;
+  created_at?: string;
+  current_policy_version?: number;
+  configuration_admission?: { state?: string; policy_version?: number };
+  conditions?: { type?: string; status?: string; reason?: string; message?: string }[];
+};
+
+function runOpenShell(args: string[], timeoutMs = 10_000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("openshell", args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    const timer = setTimeout(() => child.kill("SIGKILL"), timeoutMs);
+    child.stdout.on("data", (chunk: Buffer) => { stdout = (stdout + chunk.toString()).slice(0, 128_000); });
+    child.stderr.on("data", (chunk: Buffer) => { stderr = (stderr + chunk.toString()).slice(0, 4096); });
+    child.on("error", (error) => { clearTimeout(timer); reject(error); });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (code === 0) resolve(stdout);
+      else reject(new Error(stderr.trim() || `OpenShell exited with code ${code}`));
+    });
+  });
+}
+
+function statusValue(output: string, label: string) {
+  return output.match(new RegExp(`^\\s*${label}:\\s*(.+)$`, "mi"))?.[1]?.trim() ?? null;
+}
+
+async function openShellRuntime() {
+  try {
+    const [statusOutput, sandboxOutput] = await Promise.all([
+      runOpenShell(["status"]),
+      runOpenShell(["sandbox", "list", "-o", "json"]),
+    ]);
+    const parsed = JSON.parse(sandboxOutput) as { sandboxes?: OpenShellSandbox[] };
+    return {
+      available: true,
+      gateway: statusValue(statusOutput, "Gateway"),
+      server: statusValue(statusOutput, "Server"),
+      status: statusValue(statusOutput, "Status"),
+      authentication: statusValue(statusOutput, "Authentication"),
+      version: statusValue(statusOutput, "Version"),
+      sandboxes: (parsed.sandboxes ?? []).map((sandbox) => ({
+        id: sandbox.id ?? "",
+        name: sandbox.name ?? "Unnamed",
+        phase: sandbox.phase ?? "Unknown",
+        workspace: sandbox.workspace ?? "default",
+        createdAt: sandbox.created_at ?? null,
+        policyVersion: sandbox.current_policy_version ?? sandbox.configuration_admission?.policy_version ?? null,
+        configurationState: sandbox.configuration_admission?.state ?? null,
+        ready: sandbox.conditions?.some((condition) => condition.type === "Ready" && condition.status === "True") ?? false,
+      })),
+      error: null,
+      checkedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    return {
+      available: false, gateway: null, server: null, status: "Unavailable", authentication: null,
+      version: null, sandboxes: [], error: error instanceof Error ? error.message : "OpenShell status failed",
+      checkedAt: new Date().toISOString(),
+    };
+  }
+}
 
 function collectEvidence(password: string, sandbox: string, sshHost: string, fingerprint: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -59,8 +126,11 @@ async function adminSession() {
 
 export async function GET() {
   if (!(await adminSession())) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
-  const reports = await db.select().from(sshReports).orderBy(desc(sshReports.id)).limit(50);
-  return NextResponse.json({ reports, targetIp: process.env.OPENSHELL_SSH_TARGET_IP ?? null });
+  const [reports, runtime] = await Promise.all([
+    db.select().from(sshReports).orderBy(desc(sshReports.id)).limit(50),
+    openShellRuntime(),
+  ]);
+  return NextResponse.json({ reports, runtime, targetIp: process.env.OPENSHELL_SSH_TARGET_IP ?? null });
 }
 
 export async function POST(request: Request) {
